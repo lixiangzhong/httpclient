@@ -34,10 +34,30 @@ var DefaultTransport *http.Transport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 }
 
-func Default() *HttpClient {
+func New() *HttpClient {
 	return &HttpClient{
 		Client: http.DefaultClient,
 	}
+}
+
+func Get(Url string) (*Response, error) {
+	c := New()
+	c.R = newRequest("GET", Url)
+	return c.Do()
+}
+
+func Head(Url string) (*Response, error) {
+	c := New()
+	c.R = newRequest("HEAD", Url)
+	return c.Do()
+}
+
+func Post(Url, bodyType string, body io.Reader) (*Response, error) {
+	c := New()
+	c.R = newRequest("POST", Url)
+	c.R.Header.Set("Content-Type", bodyType)
+	c.SetBody(body)
+	return c.Do()
 }
 
 //Request
@@ -65,7 +85,7 @@ func (h *HttpClient) Get(Url string) {
 	h.R = newRequest("GET", Url)
 }
 
-func (h *HttpClient) Post(Url, bodyType string, body io.ReadCloser) {
+func (h *HttpClient) Post(Url, bodyType string, body io.Reader) {
 	r := newRequest("POST", Url)
 	r.Header.Set("Content-Type", bodyType)
 	h.R = r
