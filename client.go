@@ -113,6 +113,7 @@ func (h *HttpClient) Options(Url string) {
 }
 
 func (h *HttpClient) PostForm(Url string, v url.Values) {
+	h.R = newRequest("POST", Url)
 	h.R.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if v != nil {
 		h.SetBody(strings.NewReader(v.Encode()))
@@ -120,6 +121,7 @@ func (h *HttpClient) PostForm(Url string, v url.Values) {
 }
 
 func (h *HttpClient) PostJson(Url string, o interface{}) error {
+	h.R = newRequest("POST", Url)
 	body, err := json.Marshal(o)
 	if err != nil {
 		return err
@@ -130,6 +132,7 @@ func (h *HttpClient) PostJson(Url string, o interface{}) error {
 }
 
 func (h *HttpClient) PostXml(Url string, o interface{}) error {
+	h.R = newRequest("POST", Url)
 	body, err := xml.Marshal(o)
 	if err != nil {
 		return err
