@@ -17,9 +17,16 @@ import (
 	"time"
 )
 
+const (
+	Content_Type_From = "application/x-www-form-urlencoded"
+	Content_Type_Json = "application/json"
+	Content_Type_Xml  = "text/xml"
+)
+
 type HttpClient struct {
 	R      *http.Request
 	Client *http.Client
+	Params url.Values
 }
 type Response struct {
 	*http.Response
@@ -62,12 +69,12 @@ func Post(Url, bodyType string, body io.Reader) (*Response, error) {
 
 //Request
 func newRequest(method, Url string) *http.Request {
-	if !strings.Contains(Url, "http://") && !strings.Contains(Url, "https://") {
-		Url = "http://" + Url
-	}
 	u, err := url.Parse(Url)
 	if err != nil {
 		panic(err.Error())
+	}
+	if u.Scheme == "" {
+		u.Scheme = "http"
 	}
 	req := &http.Request{
 		Method:     method,
@@ -170,6 +177,13 @@ func (h *HttpClient) UserAgent(UA string) {
 
 func (h *HttpClient) Host(hostname string) {
 	h.R.Host = hostname
+}
+
+func (h *HttpClient) Header() http.Header {
+	if h.R.Header == nil {
+		h.R.Header = make(http.Header)
+	}
+	return h.R.Header
 }
 
 func (h *HttpClient) QueryAdd(key, value string) {
