@@ -1,10 +1,12 @@
-package httpclient
+package request
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
+	"golang.org/x/net/proxy"
 	"io"
 	"io/ioutil"
 	"net"
@@ -24,9 +26,10 @@ const (
 )
 
 type HttpClient struct {
-	R      *http.Request
-	Client *http.Client
-	Params url.Values
+	Request *http.Request
+	Client  *http.Client
+	Query   url.Values
+	Param   url.Values
 }
 type Response struct {
 	*http.Response
@@ -34,7 +37,7 @@ type Response struct {
 
 var DefaultTransport *http.Transport = &http.Transport{
 	Dial: (&net.Dialer{
-		Timeout:   30 * time.Second,
+		Timeout:   10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}).Dial,
 	TLSHandshakeTimeout:   10 * time.Second,
@@ -44,31 +47,38 @@ var DefaultTransport *http.Transport = &http.Transport{
 func New() *HttpClient {
 	return &HttpClient{
 		Client: http.DefaultClient,
+		Query:  url.Values{},
+		Param:  url.Values{},
 	}
 }
 
 func Get(Url string) (*Response, error) {
 	c := New()
-	c.R = newRequest("GET", Url)
+	c.Request = newRequest(http.MethodGet, Url)
 	return c.Do()
 }
 
 func Head(Url string) (*Response, error) {
 	c := New()
-	c.R = newRequest("HEAD", Url)
+	c.Request = newRequest(http.MethodHead, Url)
 	return c.Do()
 }
 
 func Post(Url, bodyType string, body io.Reader) (*Response, error) {
 	c := New()
-	c.R = newRequest("POST", Url)
-	c.R.Header.Set("Content-Type", bodyType)
-	c.SetBody(body)
+	c.Request = newRequest(http.MethodPost, Url)
+	c.Request.Header.Set("Content-Type", bodyType)
+	c.Body(body)
 	return c.Do()
 }
 
 //Request
 func newRequest(method, Url string) *http.Request {
+	if !strings.HasPrefix(Url, "//") {
+		if !strings.HasPrefix(Url, "http://") && !strings.HasPrefix(Url, "https://") {
+			Url = "http://" + Url
+		}
+	}
 	u, err := url.Parse(Url)
 	if err != nil {
 		panic(err.Error())
@@ -87,69 +97,70 @@ func newRequest(method, Url string) *http.Request {
 	}
 	return req
 }
-
 func (h *HttpClient) Get(Url string) {
-	h.R = newRequest("GET", Url)
+	h.Request = newRequest(http.MethodGet, Url)
+	h.Query = h.Request.URL.Query()
 }
-
 func (h *HttpClient) Post(Url, bodyType string, body io.Reader) {
-	r := newRequest("POST", Url)
+	r := newRequest(http.MethodPost, Url)
 	r.Header.Set("Content-Type", bodyType)
-	h.R = r
-	h.SetBody(body)
+	h.Request = r
+	h.Query = r.URL.Query()
+	h.Body(body)
 }
-
 func (h *HttpClient) Head(Url string) {
-	h.R = newRequest("HEAD", Url)
+	h.Request = newRequest(http.MethodHead, Url)
+	h.Query = h.Request.URL.Query()
 }
-
 func (h *HttpClient) Put(Url string) {
-	h.R = newRequest("PUT", Url)
+	h.Request = newRequest(http.MethodPut, Url)
+	h.Query = h.Request.URL.Query()
 }
-
 func (h *HttpClient) Patch(Url string) {
-	h.R = newRequest("PATCH", Url)
+	h.Request = newRequest(http.MethodPatch, Url)
+	h.Query = h.Request.URL.Query()
 }
 
 func (h *HttpClient) Delete(Url string) {
-	h.R = newRequest("DELETE", Url)
+	h.Request = newRequest(http.MethodDelete, Url)
+	h.Query = h.Request.URL.Query()
 }
 
 func (h *HttpClient) Options(Url string) {
-	h.R = newRequest("OPTIONS", Url)
+	h.Request = newRequest(http.MethodOptions, Url)
+	h.Query = h.Request.URL.Query()
 }
-
-func (h *HttpClient) PostForm(Url string, v url.Values) {
-	h.R = newRequest("POST", Url)
-	h.R.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if v != nil {
-		h.SetBody(strings.NewReader(v.Encode()))
+func (h *HttpClient) PostForm(Url string) {
+	h.Request = newRequest(http.MethodPost, Url)
+	h.Query = h.Request.URL.Query()
+	h.Request.Header.Set("Content-Type", Content_Type_From)
+	if len(h.Param) != 0 {
+		h.Body(strings.NewReader(h.Param.Encode()))
 	}
 }
-
 func (h *HttpClient) PostJson(Url string, o interface{}) error {
-	h.R = newRequest("POST", Url)
+	h.Request = newRequest(http.MethodPost, Url)
+	h.Query = h.Request.URL.Query()
 	body, err := json.Marshal(o)
 	if err != nil {
 		return err
 	}
-	h.SetBody(bytes.NewBuffer(body))
-	h.R.Header.Set("Content-Type", "application/json")
+	h.Body(bytes.NewBuffer(body))
+	h.Request.Header.Set("Content-Type", Content_Type_Json)
 	return nil
 }
-
 func (h *HttpClient) PostXml(Url string, o interface{}) error {
-	h.R = newRequest("POST", Url)
+	h.Request = newRequest(http.MethodPost, Url)
+	h.Query = h.Request.URL.Query()
 	body, err := xml.Marshal(o)
 	if err != nil {
 		return err
 	}
-	h.SetBody(bytes.NewBuffer(body))
-	h.R.Header.Set("Content-Type", "text/xml")
+	h.Body(bytes.NewBuffer(body))
+	h.Request.Header.Set("Content-Type", Content_Type_Xml)
 	return nil
 }
-
-func (h *HttpClient) SetBody(body io.Reader) {
+func (h *HttpClient) Body(body io.Reader) {
 	rc, ok := body.(io.ReadCloser)
 	if !ok && body != nil {
 		rc = ioutil.NopCloser(body)
@@ -157,61 +168,31 @@ func (h *HttpClient) SetBody(body io.Reader) {
 	if body != nil {
 		switch v := body.(type) {
 		case *bytes.Buffer:
-			h.R.ContentLength = int64(v.Len())
+			h.Request.ContentLength = int64(v.Len())
 		case *bytes.Reader:
-			h.R.ContentLength = int64(v.Len())
+			h.Request.ContentLength = int64(v.Len())
 		case *strings.Reader:
-			h.R.ContentLength = int64(v.Len())
+			h.Request.ContentLength = int64(v.Len())
 		}
 	}
-	h.R.Body = rc
+	h.Request.Body = rc
 }
-
 func (h *HttpClient) AddCookie(key, value string) {
-	h.R.AddCookie(&http.Cookie{Name: key, Value: value})
+	h.Request.AddCookie(&http.Cookie{Name: key, Value: value})
 }
-
 func (h *HttpClient) UserAgent(UA string) {
-	h.R.Header.Set("User-Agent", UA)
+	h.Request.Header.Set("User-Agent", UA)
 }
-
 func (h *HttpClient) Host(hostname string) {
-	h.R.Host = hostname
+	h.Request.Host = hostname
 }
 
 func (h *HttpClient) Header() http.Header {
-	if h.R.Header == nil {
-		h.R.Header = make(http.Header)
-	}
-	return h.R.Header
-}
-
-func (h *HttpClient) QueryAdd(key, value string) {
-	q := h.R.URL.Query()
-	q.Add(key, value)
-	h.R.URL.RawQuery = q.Encode()
-}
-
-func (h *HttpClient) QuerySet(key, value string) {
-	q := h.R.URL.Query()
-	q.Set(key, value)
-	h.R.URL.RawQuery = q.Encode()
-}
-
-func (h *HttpClient) QueryDel(key string) {
-	q := h.R.URL.Query()
-	q.Del(key)
-	h.R.URL.RawQuery = q.Encode()
-}
-
-func (h *HttpClient) QueryGet(key string) {
-	q := h.R.URL.Query()
-	q.Get(key)
-	h.R.URL.RawQuery = q.Encode()
+	return h.Request.Header
 }
 
 func (h *HttpClient) BasicAuth(username, password string) {
-	h.R.Header.Set("Authorization", "Basic "+basicAuth(username, password))
+	h.Request.Header.Set("Authorization", "Basic "+basicAuth(username, password))
 }
 
 func basicAuth(username, password string) string {
@@ -223,33 +204,60 @@ func basicAuth(username, password string) string {
 func (h *HttpClient) SetCheckRedirect(f func(req *http.Request, via []*http.Request) error) {
 	h.Client.CheckRedirect = f
 }
-
+func defaultCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if len(via) == 0 {
+		return nil
+	}
+	// Redirect requests with the first Header
+	for key, val := range via[0].Header {
+		// Don't copy Referer Header
+		if key != "Referer" {
+			req.Header[key] = val
+		}
+	}
+	return nil
+}
 func (h *HttpClient) UseCookiejar() {
 	jar, _ := cookiejar.New(nil)
 	h.Client.Jar = jar
 }
-
 func (h *HttpClient) SetTimeout(t time.Duration) {
 	h.Client.Timeout = t
 }
-
-func (h *HttpClient) UseProxy(proxyip string) {
-	if !strings.Contains(proxyip, "http://") && !strings.Contains(proxyip, "https://") {
-		proxyip = "http://" + proxyip
-	}
-	proxy := func(_ *http.Request) (*url.URL, error) {
-		return url.Parse(proxyip)
-	}
-	DefaultTransport.Proxy = proxy
-	h.Client.Transport = DefaultTransport
-}
-
 func (h *HttpClient) Do() (*Response, error) {
-	res, err := h.Client.Do(h.R)
+	h.Request.URL.RawQuery = h.Query.Encode()
+	if h.Client.CheckRedirect == nil {
+		h.Client.CheckRedirect = defaultCheckRedirect
+	}
+	res, err := h.Client.Do(h.Request)
 	if err != nil {
 		return nil, err
 	}
 	return &Response{res}, nil
+}
+func (h *HttpClient) UseProxy(host string) error {
+	u, err := url.Parse(host)
+	if err != nil {
+		return err
+	}
+	Transport := DefaultTransport
+	switch u.Scheme {
+	case "http", "https":
+		Transport.Proxy = http.ProxyURL(u)
+		h.Client.Transport = Transport
+	case "socks5":
+		dialer, err := proxy.FromURL(u, proxy.Direct)
+		if err != nil {
+			return err
+		}
+		Transport.Proxy = http.ProxyFromEnvironment
+		Transport.Dial = dialer.Dial
+		h.Client.Transport = Transport
+	}
+	return nil
 }
 
 //Response
