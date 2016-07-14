@@ -28,8 +28,8 @@ const (
 type HttpClient struct {
 	Request *http.Request
 	Client  *http.Client
-	Query   url.Values
-	Param   url.Values
+	Query   url.Values //QueryString
+	Param   url.Values //PostFromParams
 }
 type Response struct {
 	*http.Response
@@ -44,6 +44,7 @@ var DefaultTransport *http.Transport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 }
 
+//New return a HttpClient instance
 func New() *HttpClient {
 	return &HttpClient{
 		Client: http.DefaultClient,
@@ -52,18 +53,21 @@ func New() *HttpClient {
 	}
 }
 
+//Get
 func Get(Url string) (*Response, error) {
 	c := New()
 	c.Request = newRequest(http.MethodGet, Url)
 	return c.Do()
 }
 
+//Head
 func Head(Url string) (*Response, error) {
 	c := New()
 	c.Request = newRequest(http.MethodHead, Url)
 	return c.Do()
 }
 
+//Post
 func Post(Url, bodyType string, body io.Reader) (*Response, error) {
 	c := New()
 	c.Request = newRequest(http.MethodPost, Url)
@@ -97,10 +101,14 @@ func newRequest(method, Url string) *http.Request {
 	}
 	return req
 }
+
+// set MethodGet and Url
 func (h *HttpClient) Get(Url string) {
 	h.Request = newRequest(http.MethodGet, Url)
 	h.Query = h.Request.URL.Query()
 }
+
+// set MedthodPost  and Url,Content-Type header,body
 func (h *HttpClient) Post(Url, bodyType string, body io.Reader) {
 	r := newRequest(http.MethodPost, Url)
 	r.Header.Set("Content-Type", bodyType)
@@ -108,28 +116,38 @@ func (h *HttpClient) Post(Url, bodyType string, body io.Reader) {
 	h.Query = r.URL.Query()
 	h.Body(body)
 }
+
+// set Method=Head and Url
 func (h *HttpClient) Head(Url string) {
 	h.Request = newRequest(http.MethodHead, Url)
 	h.Query = h.Request.URL.Query()
 }
+
+//set Method=Put and Url
 func (h *HttpClient) Put(Url string) {
 	h.Request = newRequest(http.MethodPut, Url)
 	h.Query = h.Request.URL.Query()
 }
+
+//set Method=Patch and Url
 func (h *HttpClient) Patch(Url string) {
 	h.Request = newRequest(http.MethodPatch, Url)
 	h.Query = h.Request.URL.Query()
 }
 
+//set Method=Delete and Url
 func (h *HttpClient) Delete(Url string) {
 	h.Request = newRequest(http.MethodDelete, Url)
 	h.Query = h.Request.URL.Query()
 }
 
+//set Method=Options and Url
 func (h *HttpClient) Options(Url string) {
 	h.Request = newRequest(http.MethodOptions, Url)
 	h.Query = h.Request.URL.Query()
 }
+
+//set Method=Post,Content-Type="application/x-www-form-urlencoded",body=h.Param
 func (h *HttpClient) PostForm(Url string) {
 	h.Request = newRequest(http.MethodPost, Url)
 	h.Query = h.Request.URL.Query()
@@ -138,6 +156,8 @@ func (h *HttpClient) PostForm(Url string) {
 		h.Body(strings.NewReader(h.Param.Encode()))
 	}
 }
+
+//set Method=Post,Content-Type="application/json",body=json.Marshal(o)
 func (h *HttpClient) PostJson(Url string, o interface{}) error {
 	h.Request = newRequest(http.MethodPost, Url)
 	h.Query = h.Request.URL.Query()
@@ -149,6 +169,8 @@ func (h *HttpClient) PostJson(Url string, o interface{}) error {
 	h.Request.Header.Set("Content-Type", Content_Type_Json)
 	return nil
 }
+
+//set Method=Post,Content-Type="text/xml",body=json.Marshal(o)
 func (h *HttpClient) PostXml(Url string, o interface{}) error {
 	h.Request = newRequest(http.MethodPost, Url)
 	h.Query = h.Request.URL.Query()
@@ -160,6 +182,8 @@ func (h *HttpClient) PostXml(Url string, o interface{}) error {
 	h.Request.Header.Set("Content-Type", Content_Type_Xml)
 	return nil
 }
+
+//set Request Body
 func (h *HttpClient) Body(body io.Reader) {
 	rc, ok := body.(io.ReadCloser)
 	if !ok && body != nil {
@@ -177,20 +201,28 @@ func (h *HttpClient) Body(body io.Reader) {
 	}
 	h.Request.Body = rc
 }
+
+//Add Cookie
 func (h *HttpClient) AddCookie(key, value string) {
 	h.Request.AddCookie(&http.Cookie{Name: key, Value: value})
 }
+
+//Set User-Agent
 func (h *HttpClient) UserAgent(UA string) {
 	h.Request.Header.Set("User-Agent", UA)
 }
+
+//set Host header
 func (h *HttpClient) Host(hostname string) {
 	h.Request.Host = hostname
 }
 
+//return Header
 func (h *HttpClient) Header() http.Header {
 	return h.Request.Header
 }
 
+//set BasicAuth
 func (h *HttpClient) BasicAuth(username, password string) {
 	h.Request.Header.Set("Authorization", "Basic "+basicAuth(username, password))
 }
@@ -200,7 +232,7 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-//Client
+//when request Redirect will execute f()
 func (h *HttpClient) SetCheckRedirect(f func(req *http.Request, via []*http.Request) error) {
 	h.Client.CheckRedirect = f
 }
@@ -220,13 +252,19 @@ func defaultCheckRedirect(req *http.Request, via []*http.Request) error {
 	}
 	return nil
 }
+
+//enable Cookie
 func (h *HttpClient) UseCookiejar() {
 	jar, _ := cookiejar.New(nil)
 	h.Client.Jar = jar
 }
+
+//set request timeout
 func (h *HttpClient) SetTimeout(t time.Duration) {
 	h.Client.Timeout = t
 }
+
+//Do  return Response and err
 func (h *HttpClient) Do() (*Response, error) {
 	h.Request.URL.RawQuery = h.Query.Encode()
 	if h.Client.CheckRedirect == nil {
@@ -238,6 +276,8 @@ func (h *HttpClient) Do() (*Response, error) {
 	}
 	return &Response{res}, nil
 }
+
+//Use Proxy
 func (h *HttpClient) UseProxy(host string) error {
 	u, err := url.Parse(host)
 	if err != nil {
@@ -260,7 +300,7 @@ func (h *HttpClient) UseProxy(host string) error {
 	return nil
 }
 
-//Response
+//Response body to []byte
 func (r *Response) Byte() []byte {
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -270,10 +310,12 @@ func (r *Response) Byte() []byte {
 	return b
 }
 
+//Response body to string
 func (r *Response) String() string {
 	return string(r.Byte())
 }
 
+//Response body save as a file
 func (r *Response) DownLoadFile(filepath string) error {
 	dir, _ := path.Split(filepath)
 	if dir != "" {
