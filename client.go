@@ -331,3 +331,8 @@ func (r *Response) DownLoadFile(filepath string) error {
 	io.Copy(f, bytes.NewReader(r.Byte()))
 	return nil
 }
+
+//Json.Unmarshal ResponseBody
+func (r *Response) JsonUnmarshal(v interface{}) error {
+	return json.Unmarshal(r.Byte(), v)
+}
