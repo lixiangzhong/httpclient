@@ -21,7 +21,7 @@ import (
 
 const (
 	Content_Type_From = "application/x-www-form-urlencoded"
-	Content_Type_Json = "application/json"
+	Content_Type_Json = "application/json;charset=UTF-8"
 	Content_Type_Xml  = "text/xml"
 )
 
@@ -102,6 +102,13 @@ func newRequest(method, Url string) *http.Request {
 	return req
 }
 
+//flush old query and old param
+func (h *HttpClient) New() *HttpClient {
+	h.Query = url.Values{}
+	h.Param = url.Values{}
+	return h
+}
+
 // set MethodGet and Url
 func (h *HttpClient) Get(Url string) {
 	h.Request = newRequest(http.MethodGet, Url)
@@ -165,7 +172,7 @@ func (h *HttpClient) PostJson(Url string, o interface{}) error {
 	if err != nil {
 		return err
 	}
-	h.Body(bytes.NewBuffer(body))
+	h.Body(bytes.NewReader(body))
 	h.Request.Header.Set("Content-Type", Content_Type_Json)
 	return nil
 }
