@@ -277,6 +277,9 @@ func (h *HttpClient) Do() (*Response, error) {
 	if h.Client.CheckRedirect == nil {
 		h.Client.CheckRedirect = defaultCheckRedirect
 	}
+	if len(h.Param) > 0 {
+		h.Body(strings.NewReader(h.Param.Encode()))
+	}
 	res, err := h.Client.Do(h.Request)
 	if err != nil {
 		return nil, err
