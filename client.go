@@ -112,7 +112,7 @@ func (h *HttpClient) New() *HttpClient {
 // set MethodGet and Url
 func (h *HttpClient) Get(Url string) {
 	h.Request = newRequest(http.MethodGet, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 }
 
 // set MedthodPost  and Url,Content-Type header,body
@@ -120,44 +120,44 @@ func (h *HttpClient) Post(Url, bodyType string, body io.Reader) {
 	r := newRequest(http.MethodPost, Url)
 	r.Header.Set("Content-Type", bodyType)
 	h.Request = r
-	h.Query = r.URL.Query()
+	// h.Query = r.URL.Query()
 	h.Body(body)
 }
 
 // set Method=Head and Url
 func (h *HttpClient) Head(Url string) {
 	h.Request = newRequest(http.MethodHead, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 }
 
 //set Method=Put and Url
 func (h *HttpClient) Put(Url string) {
 	h.Request = newRequest(http.MethodPut, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 }
 
 //set Method=Patch and Url
 func (h *HttpClient) Patch(Url string) {
 	h.Request = newRequest(http.MethodPatch, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 }
 
 //set Method=Delete and Url
 func (h *HttpClient) Delete(Url string) {
 	h.Request = newRequest(http.MethodDelete, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 }
 
 //set Method=Options and Url
 func (h *HttpClient) Options(Url string) {
 	h.Request = newRequest(http.MethodOptions, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 }
 
 //set Method=Post,Content-Type="application/x-www-form-urlencoded",body=h.Param
 func (h *HttpClient) PostForm(Url string) {
 	h.Request = newRequest(http.MethodPost, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 	h.Request.Header.Set("Content-Type", Content_Type_From)
 	if len(h.Param) != 0 {
 		h.Body(strings.NewReader(h.Param.Encode()))
@@ -167,7 +167,7 @@ func (h *HttpClient) PostForm(Url string) {
 //set Method=Post,Content-Type="application/json",body=json.Marshal(o)
 func (h *HttpClient) PostJson(Url string, o interface{}) error {
 	h.Request = newRequest(http.MethodPost, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 	body, err := json.Marshal(o)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (h *HttpClient) PostJson(Url string, o interface{}) error {
 //set Method=Post,Content-Type="text/xml",body=json.Marshal(o)
 func (h *HttpClient) PostXml(Url string, o interface{}) error {
 	h.Request = newRequest(http.MethodPost, Url)
-	h.Query = h.Request.URL.Query()
+	// h.Query = h.Request.URL.Query()
 	body, err := xml.Marshal(o)
 	if err != nil {
 		return err
@@ -273,7 +273,11 @@ func (h *HttpClient) SetTimeout(t time.Duration) {
 
 //Do  return Response and err
 func (h *HttpClient) Do() (*Response, error) {
-	h.Request.URL.RawQuery = h.Query.Encode()
+	rawquery := h.Query.Encode()
+	if rawquery != "" && h.Request.URL.RawQuery != "" {
+		rawquery = "&" + rawquery
+	}
+	h.Request.URL.RawQuery += rawquery
 	if h.Client.CheckRedirect == nil {
 		h.Client.CheckRedirect = defaultCheckRedirect
 	}
